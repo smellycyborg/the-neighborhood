@@ -1,1 +1,7 @@
-print("Hello world, from server!")
+local Sdk = require(script.Sdk)
+
+local options = {
+    defaultSchema = {},
+}
+
+Sdk.init(options)
