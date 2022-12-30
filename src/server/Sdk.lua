@@ -7,6 +7,8 @@ local Common = ReplicatedStorage:WaitForChild("Common")
 local Comm = require(Common.Comm)
 local Sift = require(Common.Sift)
 
+local serverComm = Comm.ServerComm.new(ReplicatedStorage, "MainComm")
+
 local Sdk = {
     _playerData = {},
     _playerDataStore = DataStoreService:GetDataStore("PlayerData"),
@@ -56,13 +58,41 @@ local function playerRemoving()
     Sdk._playerData[player] = nil
 end
 
+local function onBuyItemFunc(player, item)
+    local playerData = Sdk._playerData[player]
+    local itemData = Items[item]
+    local itemCost = itemData.cost 
+    local playerMoney = playerData.money 
+
+    local canBuy = playerMoney > itemCost
+    local message = canBuy and "Thank you for your purchase!" or "You need more money!"
+
+    if canBuy then
+        Sdk:decreaseValue(player, "money", itemCost)
+    end
+
+    return message
+end
+
 function Sdk.init(options)
 
     sdk._defaultSchema = options.defaultSchema
 
+    -- remote functions
+    serverComm:BindFunction("BuyItemFunction", onBuyItemFunc)
+
+    -- bindings
     Players.PlayerAdded:Connect(playerAdded)
     Players.PlayerRemoving:Connect(playerRemoving)
 
+end
+
+function Sdk:incrementValue(player, key, amount)
+    self._playerData[player][key]+=amount
+end
+
+function Sdk:decreaseValue(player, key, amount)
+    self._playerData[player][key]-=amount
 end
 
 return Sdk
