@@ -1,5 +1,11 @@
 local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Common = ReplicatedStorage:WaitForChild("Common")
+
+local Comm = require(Common.Comm)
+local Sift = require(Common.Sift)
 
 local Sdk = {
     _playerData = {},
