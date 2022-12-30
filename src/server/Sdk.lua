@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Common = ReplicatedStorage:WaitForChild("Common")
 
 local Comm = require(Common.Comm)
+local Roact = require(Common.Roact)
 local Sift = require(Common.Sift)
 
 local serverComm = Comm.ServerComm.new(ReplicatedStorage, "MainComm")
@@ -12,6 +13,7 @@ local serverComm = Comm.ServerComm.new(ReplicatedStorage, "MainComm")
 local Sdk = {
     _playerData = {},
     _playerDataStore = DataStoreService:GetDataStore("PlayerData"),
+    _workspaceItems = {},
 }
 
 local function characterAdded(character)
@@ -60,8 +62,8 @@ end
 
 local function onBuyItemFunc(player, item)
     local playerData = Sdk._playerData[player]
-    local itemData = Items[item]
-    local itemCost = itemData.cost 
+    local itemData = ItemsData[item]
+    local itemCost = itemData.cost
     local playerMoney = playerData.money 
 
     local canBuy = playerMoney > itemCost
@@ -74,14 +76,53 @@ local function onBuyItemFunc(player, item)
     return message
 end
 
+local function onDropItemEvent(_player, item, itemData)
+    local item = ReplicatedStorage.Items:FindFirstChild(item)
+    if not item then
+        warn("MESSAGE/Warning:  Could not find ", item, " in Replicated Storage.")
+        return
+    end
+
+    local function onPromptTriggered(player)
+        local tool = ReplicatedStorage.Tools:FindFirstChild(item)
+        
+        local toolClone = tool:Clone()
+        toolClone.Name = item
+        toolClone.Parent = player.Backpack
+
+        itemClone:Destroy()
+
+        if itemData.money then
+            Sdk:incrementValue(player, "money", itemData.money)
+        end
+
+        Sdk:removeFromWorkspace(item)
+    end
+
+    itemClone = item:Clone()
+    itemClone.Name = item
+    item.Parent = workspace
+
+    Sdk:addToWorkspace(item, itemData)
+
+    local prompt = Instance.new("ProximityPrompt")
+    prompt.Parent = itemClone
+
+    prompt.Triggered:Connect(onPromptTriggered)
+end
+
 function Sdk.init(options)
 
     sdk._defaultSchema = options.defaultSchema
+
+    -- remote events
+    dropItemEvent = serverComm:CreateSignal("DropItemEvent")
 
     -- remote functions
     serverComm:BindFunction("BuyItemFunction", onBuyItemFunc)
 
     -- bindings
+    dropItemEvent:Connect(onDropItemEvent)
     Players.PlayerAdded:Connect(playerAdded)
     Players.PlayerRemoving:Connect(playerRemoving)
 
@@ -93,6 +134,14 @@ end
 
 function Sdk:decreaseValue(player, key, amount)
     self._playerData[player][key]-=amount
+end
+
+function Sdk:addToWorkspace(item, itemData)
+    self._workspace[item] = itemData
+end
+
+function Sdk:removeFromWorkspace(item)
+    self._workspace[item] = nil
 end
 
 return Sdk
