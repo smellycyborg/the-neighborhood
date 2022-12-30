@@ -101,7 +101,7 @@ local function onDropItemEvent(_player, item, itemData)
 
     itemClone = item:Clone()
     itemClone.Name = item
-    item.Parent = workspace
+    item.Parent = workspaceItems
 
     Sdk:addToWorkspace(item, itemData)
 
@@ -114,6 +114,11 @@ end
 function Sdk.init(options)
 
     sdk._defaultSchema = options.defaultSchema
+
+    -- folders
+    workspaceItems = Instance.new("Folder")
+    workspaceItems.Name = "WorkspaceItems"
+    workspaceItems.parent = workspace
 
     -- remote events
     dropItemEvent = serverComm:CreateSignal("DropItemEvent")
