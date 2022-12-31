@@ -7,6 +7,7 @@ local Common = ReplicatedStorage:WaitForChild("Common")
 local Comm = require(Common.Comm)
 local Roact = require(Common.Roact)
 local Sift = require(Common.Sift)
+local Janitor = require(Common.Janitor)
 
 local serverComm = Comm.ServerComm.new(ReplicatedStorage, "MainComm")
 
@@ -14,10 +15,58 @@ local Sdk = {
     _playerData = {},
     _playerDataStore = DataStoreService:GetDataStore("PlayerData"),
     _workspaceItems = {},
+    _playerConnections = {},
 }
 
 local function characterAdded(character)
-    
+    local player = Players:GetPlayerFromCharacter(character)
+    local humanoid = character:FindFirstChild("Humanoid")
+
+    Sdk._playerConnections[player] = {}
+    Sdk._playerConnections[player]._janitor = Janitor.new()
+
+    Sdk._playerData[player].health = humanoid.Health
+
+    local function onHealthChanged(newHealth)
+        if newHealth == 0 then
+            return
+        end
+
+        local oldHealth = Sdk._playerData[player].health
+        local isIncrement = oldHealth < newHealth
+        if isIncrement then
+            return
+        end
+        
+        local amountChanged = math.floor(oldHealth - newHealth)
+
+        Sdk:setValue(player, "health", newHealth)
+
+        for _, plr in pairs(Players:GetPlayers()) do
+            sendValueChangedGuiEvent:Fire(plr, {
+                character = character, 
+                amount = amountChanged, 
+                isIncrement = isIncrement,
+                imageType = "health",
+            })
+        end
+    end
+
+    local function onDied()
+		Sdk._playerConnections[player]._janitor:Cleanup()
+	end
+
+	Sdk._playerConnections[player]._janitor:Add(humanoid.HealthChanged:Connect(onHealthChanged))
+	Sdk._playerConnections[player]._janitor:Add(humanoid.Died:Connect(onDied))
+
+    print("MESSAGE/Info:  character has been added..")
+end
+
+local function characterRemoving(character)
+    local player = Players:GetPlayerFromCharacter(character)
+
+    Sdk._playerConnections[player]._janitor:Destroy()
+    Sdk._playerConnections[player] = nil
 end
 
 local function playerAdded(player)
@@ -39,14 +88,18 @@ local function playerAdded(player)
 end
 
     Sdk._playerData[player] = playerData
+
+    -- bindings
+    player.CharacterAdded:Connect(characterAdded)
+    player.CharacterRemoving:Connect(characterRemoving)
 end
 
-local function playerRemoving()
+local function playerRemoving(player)
     local playerData = Sdk._playerData[player]
 
 	local success, err = pcall(function()
         -- save player data
-        self._playerDataStore:SetAsync(string.format("Player_%d", player.UserId), playerData)
+        Sdk._playerDataStore:SetAsync(string.format("Player_%d", player.UserId), playerData)
     end)
 
     if (err) then
@@ -113,15 +166,16 @@ end
 
 function Sdk.init(options)
 
-    sdk._defaultSchema = options.defaultSchema
+    Sdk._defaultSchema = options.defaultSchema
 
     -- folders
     workspaceItems = Instance.new("Folder")
     workspaceItems.Name = "WorkspaceItems"
-    workspaceItems.parent = workspace
+    workspaceItems.Parent = workspace
 
     -- remote events
     dropItemEvent = serverComm:CreateSignal("DropItemEvent")
+    sendValueChangedGuiEvent = serverComm:CreateSignal("ValueChangedGuiEvent")
 
     -- remote functions
     serverComm:BindFunction("BuyItemFunction", onBuyItemFunc)
@@ -139,6 +193,10 @@ end
 
 function Sdk:decreaseValue(player, key, amount)
     self._playerData[player][key]-=amount
+end
+
+function  Sdk:setValue(player, key, value)
+    self._playerData[player][key] = value
 end
 
 function Sdk:addToWorkspace(item, itemData)
