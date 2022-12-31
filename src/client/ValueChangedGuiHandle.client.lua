@@ -5,6 +5,7 @@ local Common = ReplicatedStorage:WaitForChild("Common")
 
 local Comm = require(Common.Comm)
 local modifyNumber = require(Common.modifyNumber)
+local imageTypes = require(Common.imageTypes)
 
 local clientComm = Comm.ClientComm.new(ReplicatedStorage, false, "MainComm")
 local valueChangedGuiEvent = clientComm:GetSignal("ValueChangedGuiEvent")
@@ -16,21 +17,6 @@ local FADE_INCREMENT = 0.1
 local TRANSPARENCY_GOAL = 1
 
 local tweenInfo = TweenInfo.new(TWEEN_TIME, Enum.EasingStyle.Linear)
-
-local imageTypes = {
-	["health"] = {
-		["image"] = "rbxassetid://11980872836",
-		["color"] = Color3.fromRGB(239, 58, 71),
-	},
-	["money"] = {
-		["image"] = "rbxassetid://11980956858",
-		["color"] = Color3.new(27, 113, 93),
-	},
-	["crystals"] = {
-		["image"] = nil,
-		["color"] = nil,
-	},
-}
 
 local function onValueChangedGuiEvent(args)
 	local character = args.character
