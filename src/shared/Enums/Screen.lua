@@ -1,5 +1,6 @@
 return {
-    Items = "Items",
-	Settings = "Settings",
     Shop = "Shop",
+	Settings = "Settings",
+    GamePasses = "GamePasses",
+    Tips = "Tips",
 }
