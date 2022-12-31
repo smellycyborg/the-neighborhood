@@ -16,7 +16,7 @@ rojo serve
 
 For more help, check out [the Rojo documentation](https://rojo.space/docs).
 
-
+## TODO:  make printers and distillers, make money and crystal and ammo added ui, 
 
 ## jail system
 - 5 minutes jail time
