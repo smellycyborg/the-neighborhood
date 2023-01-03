@@ -5,10 +5,14 @@ return {
 	},
 	["money"] = {
 		["image"] = "rbxassetid://11980956858",
-		["color"] = Color3.new(27, 113, 93),
+		["color"] = Color3.fromRGB(27, 113, 93),
 	},
 	["crystals"] = {
 		["image"] = nil,
 		["color"] = nil,
+	},
+	["Sheriff"] = {
+		["image"] = "rbxassetid://11985985125",
+		["color"] = Color3.fromRGB(254, 206, 63),
 	},
 }

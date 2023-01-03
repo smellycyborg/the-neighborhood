@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Common = ReplicatedStorage:WaitForChild("Common")
+local Guis = ReplicatedStorage:WaitForChild("Guis")
 
 local Comm = require(Common.Comm)
 local modifyNumber = require(Common.modifyNumber)
@@ -29,7 +30,7 @@ local function onValueChangedGuiEvent(args)
 		foundGui:Destroy()
 	end
 
-    local characterBillboardGui = ReplicatedStorage:WaitForChild("CharacterBillboardGui")
+    local characterBillboardGui = Guis.CharacterBillboardGui
     local guiClone = characterBillboardGui:Clone()
 	guiClone.Name = imageType
     guiClone.Parent = character.Head
@@ -45,7 +46,7 @@ local function onValueChangedGuiEvent(args)
 	imageLabel.Image = imageTypes[imageType].image
 
 	local guiTweenGoal = {}
-	guiTweenGoal.StudsOffset = Vector3.new(0, math.random(1, 2.2), 0)
+	guiTweenGoal.StudsOffset = Vector3.new(0, 2.8, 0)
 
 	local tweenUp = TweenService:Create(guiClone, tweenInfo, guiTweenGoal)
     tweenUp:Play()

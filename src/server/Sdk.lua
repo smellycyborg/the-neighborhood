@@ -1,19 +1,23 @@
 local Players = game:GetService("Players")
-local DataStoreService = game:GetService("DataStoreService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Common = ReplicatedStorage:WaitForChild("Common")
 
+local PlayerData = require(Common.PlayerData)
 local Comm = require(Common.Comm)
 local Roact = require(Common.Roact)
 local Sift = require(Common.Sift)
 local Janitor = require(Common.Janitor)
+local signals = require(Common._signals)
+local ShopItems = require(Common.ShopItems)
+local ObjectHandler = require(Common.ObjectHandler)
+
+local isServer = RunService:IsServer()
 
 local serverComm = Comm.ServerComm.new(ReplicatedStorage, "MainComm")
 
 local Sdk = {
-    _playerData = {},
-    _playerDataStore = DataStoreService:GetDataStore("PlayerData"),
     _workspaceItems = {},
     _playerConnections = {},
 }
@@ -25,14 +29,14 @@ local function characterAdded(character)
     Sdk._playerConnections[player] = {}
     Sdk._playerConnections[player]._janitor = Janitor.new()
 
-    Sdk._playerData[player].health = humanoid.Health
+    PlayerData._playerData[player].health = humanoid.Health
 
     local function onHealthChanged(newHealth)
         if newHealth == 0 then
             return
         end
 
-        local oldHealth = Sdk._playerData[player].health
+        local oldHealth = PlayerData._playerData[player].health
         local isIncrement = oldHealth < newHealth
         if isIncrement then
             return
@@ -40,7 +44,7 @@ local function characterAdded(character)
         
         local amountChanged = math.floor(oldHealth - newHealth)
 
-        Sdk:setValue(player, "health", newHealth)
+        PlayerData:setValue(player, "health", newHealth)
 
         for _, plr in pairs(Players:GetPlayers()) do
             sendValueChangedGuiEvent:Fire(plr, {
@@ -70,24 +74,7 @@ local function characterRemoving(character)
 end
 
 local function playerAdded(player)
-    local DEFAULT_SCHEMA = Sdk._defaultSchema
-
-    local playerData
-    local success, data = pcall(function()
-        return Sdk._playerDataStore:GetAsync(player.UserId)
-    end)
-
-    if success then
-        if data ~= nil then
-                playerData = data
-        else
-            playerData = DEFAULT_SCHEMA
-        end
-    else
-	playerData = DEFAULT_SCHEMA
-end
-
-    Sdk._playerData[player] = playerData
+    PlayerData:createData(player)
 
     -- bindings
     player.CharacterAdded:Connect(characterAdded)
@@ -95,38 +82,52 @@ end
 end
 
 local function playerRemoving(player)
-    local playerData = Sdk._playerData[player]
-
-	local success, err = pcall(function()
-        -- save player data
-        Sdk._playerDataStore:SetAsync(string.format("Player_%d", player.UserId), playerData)
-    end)
-
-    if (err) then
-        warn(err)
-    end
-
-    repeat
-        task.wait()
-    until success
-
-    Sdk._playerData[player] = nil
+    PlayerData:removeData(player)
 end
 
-local function onBuyItemFunc(player, item)
-    local playerData = Sdk._playerData[player]
-    local itemData = ItemsData[item]
+local function onBuyShopItem(player, item)
+    local playerData = PlayerData._playerData[player]
+    local itemData = ShopItems[item]
     local itemCost = itemData.cost
     local playerMoney = playerData.money 
 
     local canBuy = playerMoney > itemCost
     local message = canBuy and "Thank you for your purchase!" or "You need more money!"
 
+    -- this chunk is for testing purpsoes only
+    if isServer then
+        canBuy = true
+    end
+
     if canBuy then
-        Sdk:decreaseValue(player, "money", itemCost)
+        PlayerData:decreaseValue(player, "money", itemCost)
+
+        local character = player.Character
+        if not character then
+            return
+        end
+
+        local humanoid = character:FindFirstChild("Humanoid")
+        if not humanoid then
+            return
+        end
+
+        local position = character:FindFirstChild("HumanoidRootPart").Position
+
+        local objectData = {
+            player = player,
+            itemData = itemData,
+            position = position,
+        }
+
+        ObjectHandler:spawnObject(objectData)
     end
 
     return message
+end
+
+local function onGetShopItemsInfo()
+    return require(Common.ShopItems)
 end
 
 local function onDropItemEvent(_player, item, itemData)
@@ -146,7 +147,7 @@ local function onDropItemEvent(_player, item, itemData)
         itemClone:Destroy()
 
         if itemData.money then
-            Sdk:incrementValue(player, "money", itemData.money)
+            PlayerData:incrementValue(player, "money", itemData.money)
         end
 
         Sdk:removeFromWorkspace(item)
@@ -164,39 +165,77 @@ local function onDropItemEvent(_player, item, itemData)
     prompt.Triggered:Connect(onPromptTriggered)
 end
 
+local function onPlayerPressedBillboardButton(player, buttonName, objectValue)
+    signals.playerPressedButtonSignal:Fire({ player = player, name = buttonName, object = objectValue })
+end
+
+local function updateBillboardGui(billboardGui, objectData) 
+    for _, element in pairs(billboardGui:GetDescendants()) do
+        if element.Name == "Money" and element:IsA("TextLabel") then
+            element.Text = ("money: " .. objectData.currency)
+        elseif element == "LevelTitle" and element:IsA("TextLabel") then
+            element.Text = ("level " .. tostring(objectData.level))
+        elseif element.Name == "LevelStat" and element:IsA("Frame") then
+            element:TweenSize(UDim2.fromScale(objectData.xp / objectData.xpToNextLevel, 1))
+        elseif element.Name == "MoneyStat" and element:IsA("Frame") then
+            element:TweenSize(UDim2.fromScale(objectData.timeAdded / objectData.timeUntilPrint, 1))
+        elseif element.Name == "MoneyTitle" and element:IsA("TextLabel") then
+            element.Text = tostring(math.floor(objectData.timeAdded / objectData.timeUntilPrint * 100)) .. "%"
+        end
+    end
+end
+
+local function updateBillboardGuis(player)
+    for _, billboardGui in pairs(player.PlayerGui:GetChildren()) do
+        if not billboardGui:IsA("BillboardGui") then
+            continue
+		end
+		
+		local object = billboardGui.Adornee
+		local objectData = ObjectHandler:getObjectData(object)
+		if not objectData then
+			continue
+		end
+        
+        updateBillboardGui(billboardGui, objectData)
+    end         
+end
+
 function Sdk.init(options)
 
-    Sdk._defaultSchema = options.defaultSchema
+    PlayerData._defaultSchema = options.defaultSchema
 
     -- folders
     workspaceItems = Instance.new("Folder")
     workspaceItems.Name = "WorkspaceItems"
     workspaceItems.Parent = workspace
+    local printersFolder = Instance.new("Folder")
+    printersFolder.Name = "Printers"
+    printersFolder.Parent = workspace
+    local crystallersFolder = Instance.new("Folder")
+    crystallersFolder.Name = "Crystallers"
+    crystallersFolder.Parent = workspace
 
     -- remote events
     dropItemEvent = serverComm:CreateSignal("DropItemEvent")
     sendValueChangedGuiEvent = serverComm:CreateSignal("ValueChangedGuiEvent")
+    local playerPressedBillboardButton = serverComm:CreateSignal("PlayerPressedBillboardButton")
 
     -- remote functions
-    serverComm:BindFunction("BuyItemFunction", onBuyItemFunc)
+    serverComm:BindFunction("BuyShopItem", onBuyShopItem)
+    serverComm:BindFunction("GetShopItemsInfo", onGetShopItemsInfo)
 
     -- bindings
     dropItemEvent:Connect(onDropItemEvent)
+    playerPressedBillboardButton:Connect(onPlayerPressedBillboardButton)  -- remove event for player pressing button that is a descendant of billboard gui
     Players.PlayerAdded:Connect(playerAdded)
     Players.PlayerRemoving:Connect(playerRemoving)
 
-end
-
-function Sdk:incrementValue(player, key, amount)
-    self._playerData[player][key]+=amount
-end
-
-function Sdk:decreaseValue(player, key, amount)
-    self._playerData[player][key]-=amount
-end
-
-function  Sdk:setValue(player, key, value)
-    self._playerData[player][key] = value
+    while task.wait() do
+        for _, player in pairs(Players:GetPlayers()) do
+            updateBillboardGuis(player)
+        end
+    end
 end
 
 function Sdk:addToWorkspace(item, itemData)

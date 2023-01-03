@@ -4,7 +4,7 @@ local Common = ReplicatedStorage:WaitForChild("Common")
 local Roact = require(Common.Roact)
 
 local RoactComponents = script.Parent
-local ImageButton = require(RoactComponents.ImageButton)
+local MenuButton = require(RoactComponents.MenuButton)
 
 local SHOP_IMAGE_ID = "rbxassetid://11988957536"
 local SETTINGS_IMAGE_ID = "rbxassetid://11988957403"
@@ -13,7 +13,6 @@ local TIPS_IMAGE_ID = "rbxassetid://11988977243"
 
 function ButtonList(props)
 	local buttonNames = props.buttonNames
-	local onButtonActivated = props.onButtonActivated
 
 	local buttons = {}
 	for _, buttonName in pairs(buttonNames) do
@@ -29,15 +28,10 @@ function ButtonList(props)
 			buttonImage = TIPS_IMAGE_ID
 		end
 
-		buttons[buttonName] = Roact.createElement(ImageButton, {
-			Image = image,
-			[Roact.Event.Activated] = function(...)
-				if not onButtonActivated then
-					return
-				end
-
-				onButtonActivated(buttonName, ...)
-			end
+		buttons[buttonName] = Roact.createElement(MenuButton, {
+			image = buttonImage,
+			buttonName = buttonName,
+			onButtonActivated = props.onButtonActivated,
 		})
 	end
 
@@ -47,10 +41,12 @@ function ButtonList(props)
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		SizeConstraint = Enum.SizeConstraint.RelativeYY,
 	}, {
 		UIListLayout = Roact.createElement("UIListLayout", {
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0.05, 0.05)
+			Padding = UDim.new(0.05, 0.05),
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		}),
 		Buttons = Roact.createFragment(buttons)
 	})
