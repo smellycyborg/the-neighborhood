@@ -16,7 +16,14 @@ rojo serve
 
 For more help, check out [the Rojo documentation](https://rojo.space/docs).
 
-## TODO:  make printers and distillers, make money and crystal and ammo added ui, 
+## TODO:  printer level text isn't working, hook up boost button, add printer health and hammer to destroy printers
+
+# Todo set up printer button handle
+@params(player, button-name, adornee-object) -- remote function
+-> check on server player raycast and adornee object
+--> if the above match get printer
+--> handle print currency or boost for specific printer
+--> handle player data
 
 ## jail system
 - 5 minutes jail time

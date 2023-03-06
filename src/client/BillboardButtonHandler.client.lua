@@ -18,8 +18,7 @@ local function handleBillboardButtons(billboard)
         end
         
         button.MouseButton1Up:Connect(function()
-            local objectValue = billboard.Adornee
-            playerPressedBillboardButton:Fire(button.Name, objectValue)
+            playerPressedBillboardButton:Fire(button.Name)
         end)
     end
 end

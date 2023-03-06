@@ -8,7 +8,11 @@ local options = {
         crystals = 0,
         rank = 0,
         properties = {},
-        weapons = {},
+        weapons = {
+            hammer = {},
+            dagger = {},
+            bazooka = {},
+        },
         printers = {},
         distillers = {},
     },

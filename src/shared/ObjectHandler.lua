@@ -7,6 +7,7 @@ local Common = ReplicatedStorage:WaitForChild("Common")
 local PlayerData = require(Common.PlayerData)
 local ShopItems = require(Common.ShopItems)
 local signals = require(Common._signals)
+local Comm = require(Common.Comm)
 
 local ObjectHandler = {
     _objects = {},
@@ -76,6 +77,10 @@ function ObjectHandler:handleButtonPress(args)
     local stat = getStat(name)
     local currency = ObjectHandler:getCurrency(object)
 
+    if  currency <= 0 then 
+        return
+    end
+
     if name == "Print" or name == "Pull" then
         ObjectHandler:takeCurrency(player, name, object)
     elseif name == "Boost" then
@@ -83,6 +88,14 @@ function ObjectHandler:handleButtonPress(args)
     end
 
     PlayerData:incrementValue(player, stat, currency)
+
+    signals.sendValueChangedGuiSignal:Fire({
+        player = player,
+        character = player.character, 
+        amount = currency, 
+        isIncrement = true,
+        imageType = "money",
+    })
 end
 
 function ObjectHandler:getObjectData(object)

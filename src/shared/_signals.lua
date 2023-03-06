@@ -8,4 +8,5 @@ return  {
         playerPressedButtonSignal = Signal.new(),
         incrementPlayerStat = Signal.new(),
         sendNotification = Signal.new(),
+        sendValueChangedGuiSignal = Signal.new(),
     }
